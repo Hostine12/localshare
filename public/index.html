@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalShare</title>
+<style>
+  :root {
+    --bg: #e9eff2;
+    --surface: #ffffff;
+    --ink: #13222c;
+    --muted: #5b6d79;
+    --line: #cfdae0;
+    --accent: #0b7a85;
+    --accent-ink: #ffffff;
+    --accent-soft: #d9f0f2;
+    --danger: #b3361b;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e171c;
+      --surface: #16232a;
+      --ink: #e6eef2;
+      --muted: #8fa3af;
+      --line: #28383f;
+      --accent: #3cc3cf;
+      --accent-ink: #06191c;
+      --accent-soft: #11363b;
+      --danger: #ff8a6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 18px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+  h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  section { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  button, .btn {
+    font: inherit; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    padding: 10px 16px; border-radius: 10px; text-decoration: none; display: inline-block;
+    min-height: 44px;
+  }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button:focus-visible, .btn:focus-visible, textarea:focus-visible, .drop:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  .ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 8px 10px; }
+  .ghost.danger:hover { color: var(--danger); }
+
+  /* Zone de dépôt : l'élément principal de la page */
+  .drop {
+    border: 2px dashed var(--accent); background: var(--accent-soft);
+    border-radius: var(--radius); padding: 38px 18px; text-align: center; cursor: pointer;
+    transition: transform .12s, background .12s;
+  }
+  .drop.over { transform: scale(1.015); background: var(--surface); }
+  .drop strong { display: block; font-size: 1.25rem; margin-bottom: 4px; }
+  .drop span { color: var(--muted); }
+  .drop .desktop-only { display: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .drop .desktop-only { display: inline; }
+    .drop .touch-only { display: none; }
+  }
+  input[type=file] { display: none; }
+
+  /* Transferts en cours */
+  #transfers { display: grid; gap: 10px; margin-top: 14px; }
+  #transfers:empty { display: none; }
+  .transfer .row { display: flex; justify-content: space-between; gap: 10px; font-size: .92rem; }
+  .transfer .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 4px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  .transfer.error .bar > i { background: var(--danger); }
+  .transfer.error .meta { color: var(--danger); }
+  .meta { color: var(--muted); white-space: nowrap; }
+
+  /* Liste de fichiers */
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.file { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+  li.file:first-child { border-top: 0; }
+  li.file .info { flex: 1; min-width: 0; }
+  li.file a.dl { color: var(--ink); font-weight: 600; text-decoration: none; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  li.file a.dl:hover { color: var(--accent); text-decoration: underline; }
+  .empty { color: var(--muted); margin: 0; }
+
+  /* Presse-papier */
+  textarea {
+    width: 100%; min-height: 120px; resize: vertical; font: inherit;
+    padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink);
+  }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .status { color: var(--muted); font-size: .9rem; }
+
+  /* QR code */
+  details { position: relative; }
+  summary { list-style: none; cursor: pointer; }
+  summary::-webkit-details-marker { display: none; }
+  .qr-panel {
+    position: absolute; right: 0; top: 52px; z-index: 5; width: 240px; text-align: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+  .qr-panel img { width: 100%; background: #fff; border-radius: 8px; }
+  .qr-panel p { margin: 8px 0 0; font-size: .9rem; word-break: break-all; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>LocalShare</h1>
+    <details>
+      <summary class="btn">Connecter un téléphone</summary>
+      <div class="qr-panel">
+        <img id="qr" alt="QR code pour ouvrir LocalShare sur un téléphone" src="/qr.svg">
+        <p>Scanne ce code, ou ouvre<br><strong id="url">…</strong></p>
+      </div>
+    </details>
+  </header>
+
+  <section>
+    <h2>Envoyer des fichiers</h2>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choisir des fichiers à envoyer">
+      <strong>
+        <span class="desktop-only">Dépose tes fichiers ici</span>
+        <span class="touch-only">Choisir des fichiers</span>
+      </strong>
+      <span><span class="desktop-only">ou clique pour parcourir</span><span class="touch-only">Photos, vidéos, documents</span></span>
+    </div>
+    <input type="file" id="picker" multiple>
+    <div id="transfers" aria-live="polite"></div>
+  </section>
+
+  <section>
+    <h2>Fichiers disponibles</h2>
+    <ul id="files"></ul>
+    <p class="empty" id="no-files" hidden>Aucun fichier pour l'instant. Envoie-en un depuis n'importe quel appareil.</p>
+  </section>
+
+  <section>
+    <h2>Presse-papier partagé</h2>
+    <textarea id="clip" placeholder="Colle un lien, une note ou du code ici, puis envoie-le à l'autre appareil."></textarea>
+    <div class="actions">
+      <button class="primary" id="clip-send">Envoyer</button>
+      <button id="clip-copy">Copier le texte</button>
+      <span class="status" id="clip-status"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+
+function fmtSize(n) {
+  if (n < 1024) return n + ' o';
+  const u = ['Ko', 'Mo', 'Go', 'To'];
+  let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i];
+}
+function esc(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ---------- Adresse affichée sous le QR code ---------- */
+fetch('/info').then((r) => r.json()).then((d) => { $('#url').textContent = d.url; });
+
+/* ---------- Envoi avec barre de progression ---------- */
+const drop = $('#drop'), picker = $('#picker');
+drop.addEventListener('click', () => picker.click());
+drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); } });
+picker.addEventListener('change', () => { sendFiles(picker.files); picker.value = ''; });
+['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', (e) => sendFiles(e.dataTransfer.files));
+// Évite que le navigateur ouvre un fichier lâché à côté de la zone
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
+
+function sendFiles(fileList) {
+  [...fileList].forEach(sendOne);
+}
+
+function sendOne(file) {
+  const el = document.createElement('div');
+  el.className = 'transfer';
+  el.innerHTML = `<div class="row"><span class="name">${esc(file.name)}</span><span class="meta">0 %</span></div><div class="bar"><i></i></div>`;
+  $('#transfers').prepend(el);
+  const meta = el.querySelector('.meta'), bar = el.querySelector('i');
+
+  const fd = new FormData();
+  fd.append('files', file);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/upload');
+  const start = Date.now();
+  xhr.upload.onprogress = (e) => {
+    if (!e.lengthComputable) return;
+    const pct = Math.round((e.loaded / e.total) * 100);
+    const speed = e.loaded / Math.max((Date.now() - start) / 1000, 0.1);
+    bar.style.width = pct + '%';
+    meta.textContent = `${pct} % · ${fmtSize(speed)}/s`;
+  };
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      bar.style.width = '100%';
+      meta.textContent = 'Envoyé · ' + fmtSize(file.size);
+      loadFiles();
+      setTimeout(() => el.remove(), 4000);
+    } else fail();
+  };
+  xhr.onerror = fail;
+  function fail() { el.classList.add('error'); meta.textContent = 'Échec de l\'envoi'; }
+  xhr.send(fd);
+}
+
+/* ---------- Liste des fichiers ---------- */
+let lastList = '';
+async function loadFiles() {
+  try {
+    const files = await (await fetch('/files')).json();
+    const sig = JSON.stringify(files);
+    if (sig === lastList) return;
+    lastList = sig;
+    $('#no-files').hidden = files.length > 0;
+    $('#files').innerHTML = files.map((f) => `
+      <li class="file">
+        <div class="info">
+          <a class="dl" href="/files/${encodeURIComponent(f.name)}" download="${esc(f.name)}">${esc(f.name)}</a>
+          <span class="meta">${fmtSize(f.size)}</span>
+        </div>
+        <a class="btn" href="/files/${encodeURIComponent(f.name)}" download="${esc(f.name)}">Télécharger</a>
+        <button class="ghost danger" data-del="${esc(f.name)}" aria-label="Supprimer ${esc(f.name)}">Supprimer</button>
+      </li>`).join('');
+  } catch { /* serveur injoignable : on réessaie au prochain cycle */ }
+}
+$('#files').addEventListener('click', async (e) => {
+  const name = e.target.dataset.del;
+  if (!name || !confirm(`Supprimer « ${name} » ?`)) return;
+  await fetch('/files/' + encodeURIComponent(name), { method: 'DELETE' });
+  lastList = '';
+  loadFiles();
+});
+
+/* ---------- Presse-papier partagé ---------- */
+const clip = $('#clip'), status = $('#clip-status');
+let clipStamp = 0, dirty = false;
+clip.addEventListener('input', () => { dirty = true; });
+
+async function loadClip() {
+  try {
+    const c = await (await fetch('/clipboard')).json();
+    // On ne remplace pas le texte si l'utilisateur est en train de l'éditer
+    if (c.updated !== clipStamp && !dirty) { clip.value = c.text; }
+    if (!dirty) clipStamp = c.updated;
+  } catch {}
+}
+$('#clip-send').addEventListener('click', async () => {
+  const r = await fetch('/clipboard', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: clip.value }),
+  });
+  clipStamp = (await r.json()).updated;
+  dirty = false;
+  flash('Envoyé aux autres appareils');
+});
+$('#clip-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(clip.value); // nécessite HTTPS ou localhost
+  } catch {
+    clip.select(); // repli pour http://IP-locale sur téléphone
+    document.execCommand('copy');
+  }
+  flash('Copié');
+});
+function flash(msg) { status.textContent = msg; setTimeout(() => (status.textContent = ''), 2500); }
+
+/* ---------- Rafraîchissement automatique ---------- */
+loadFiles(); loadClip();
+setInterval(() => { loadFiles(); loadClip(); }, 2500);
+</script>
+</body>
+</html>

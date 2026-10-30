@@ -1,0 +1,14 @@
+{
+  "name": "localshare",
+  "version": "1.0.0",
+  "description": "Échange de fichiers et de texte entre téléphone et PC sur le Wi-Fi local",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "multer": "^2.0.2",
+    "qrcode": "^1.5.4"
+  }
+}
